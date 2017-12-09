@@ -1,0 +1,13 @@
+[package]
+name = "gestures"
+version = "0.1.0"
+authors = ["Joe Neeman <joeneeman@gmail.com>"]
+
+[dependencies]
+    chan = "0.1"
+    chan-signal = "0.3"
+    input = "0.3"
+    libc = "0.2"
+    libgestures = { path = "../libgestures" }
+    libudev-sys = "0.1"
+
