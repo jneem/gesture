@@ -25,7 +25,7 @@ impl<T> RecResult<T> {
 
 /// A `Recognizer` is the main trait involved in recognizing gestures.
 ///
-/// TODO: more
+/// TODO: more documentation, and examples
 pub trait Recognizer: Debug {
     type In;
     type Out;
@@ -66,6 +66,10 @@ pub trait Recognizer: Debug {
     }
 }
 
+/// A recognizer that maps the output value by applying a function.
+///
+/// This struct is usually created by the [map](trait.Recognizer.html#method.map) method on
+/// [Recognizer](trait.Recognizer.html). See that method for more.
 #[derive(Clone)]
 pub struct Map<Rec, F> {
     rec: Rec,
@@ -95,6 +99,10 @@ F: FnMut(T) -> Out,
     }
 }
 
+/// A recognizer that recognizes one gesture and then another.
+///
+/// This struct is usually created by the [and_then](trait.Recognizer.html#method.and_then) method
+/// on [Recognizer](trait.Recognizer.html). See that method for more.
 #[derive(Clone, Debug)]
 pub struct Composition<Rec1, Rec2> {
     rec1: Rec1,
@@ -103,7 +111,7 @@ pub struct Composition<Rec1, Rec2> {
 }
 
 impl<T, Rec1: Recognizer<Out=T>, Rec2: Recognizer<In=T>> Composition<Rec1, Rec2> {
-    pub fn new(rec1: Rec1, rec2: Rec2) -> Composition<Rec1, Rec2> {
+    fn new(rec1: Rec1, rec2: Rec2) -> Composition<Rec1, Rec2> {
         Composition {
             rec1: rec1,
             rec2: rec2,
@@ -138,17 +146,34 @@ impl<T, Rec1: Recognizer<Out=T>, Rec2: Recognizer<In=T>> Recognizer for Composit
     }
 }
 
+/// The result of a [Filter](trait.Filter.html).
+///
+/// This is basically just a boolean, but with more descriptive names.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FilterResult {
     Passed,
     Failed,
 }
 
+/// A `Filter` provides a way to filter out bad gestures.
+///
+/// `Filter` is a bit like a [`Recognizer`](trait.Recognizer.html) in that it receives frames of
+/// input one by one and decides what to make of them. The difference is that a `Recognizer`
+/// actually produces an interesting output, while a `Filter` just waits around until it fails.
+///
+/// The main use of a `Filter` is to pass it to the
+/// [`constrain`](trait.Recognizer.html#method.constrain) method of `Recognizer`. See the
+/// documentation on that method for more information and examples.
 pub trait Filter: Debug {
     fn init(&mut self, frame: &Frame);
     fn update(&mut self, frame: &Frame) -> FilterResult;
 }
 
+/// A recognizer that recognizes the same gestures as `Rec`, but fails if `Fil` tells it to.
+///
+/// This struct is usually created by the
+/// [`constrain`](trait.Recognizer.html#method.constrain) method of `Recognizer`. See the
+/// documentation on that method for more information and examples.
 #[derive(Clone, Debug)]
 pub struct Constraint<Rec, Fil> {
     rec: Rec,
