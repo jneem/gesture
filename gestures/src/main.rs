@@ -8,9 +8,16 @@ extern crate libudev_sys;
 
 use chan_signal::Signal;
 use input::event::Event;
-use libgestures::gesture::{Gesture, InitialAngle, Manager, NoMovement, NFingers, Recognizer};
+use libgestures::Recognizer;
+use libgestures::geom::Angle;
+use libgestures::gesture::{InitialAngle, Manager, NoMovement, NFingers};
 
 mod libinput;
+
+#[derive(Clone, Debug)]
+pub enum Gesture {
+    Swipe { angle: Angle }
+}
 
 fn main() {
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
