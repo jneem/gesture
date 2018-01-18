@@ -1,6 +1,7 @@
 use euclid::vec2;
 use input::event::touch::{TouchEvent, TouchEventPosition, TouchEventSlot};
 use geom::Point;
+use std::ops::{AddAssign, SubAssign};
 
 /// Summarizes the changes that took place in a `libinput` frame.
 ///
@@ -108,18 +109,45 @@ impl Snapshot {
         }
     }
 
-    /// Returns the arithmetic mean of all the fingers that are down.
+    /// Interpolates this snapshot towards another snapshot.
+    pub fn interpolate_to(&mut self, other: &Snapshot, lambda: f64) {
+        for i in 0..MAX_SLOTS {
+            if other.down[i] {
+                self.pos[i] = self.pos[i] * (1.0 - lambda) + other.pos[i] * lambda;
+            }
+        }
+    }
+
+    /// Returns the arithmetic mean of the positions of all the fingers that are down.
     ///
     /// If there are no down fingers, returns zero.
     pub fn mean_pos(&self) -> Point {
-        let sum: Point = (0..MAX_SLOTS)
-            .filter(|i| self.down[*i])
-            .map(|i| self.pos[i])
+        let sum = self.fingers()
+            .map(|(_, p)| p)
             .fold(vec2(0.0, 0.0), |a, b| {a + b});
         if self.num_down == 0 {
             vec2(0.0, 0.0)
         } else {
             sum / (self.num_down as f64)
+        }
+    }
+
+    /// Returns the arithmetic mean of the positions of all the fingers that are down in both this
+    /// snapshot and `other`.
+    ///
+    /// If there are no such fingers, returns zero.
+    pub fn mean_pos_filtered(&self, other: &Snapshot) -> Point {
+        let sum: Point = (0..MAX_SLOTS)
+            .filter(|i| self.down[*i] && other.down[*i])
+            .map(|i| self.pos[i])
+            .fold(vec2(0.0, 0.0), |a, b| {a + b});
+		let count = (0..MAX_SLOTS)
+            .filter(|i| self.down[*i] && other.down[*i])
+			.count();
+        if count == 0 {
+            vec2(0.0, 0.0)
+        } else {
+            sum / (count as f64)
         }
     }
 
@@ -138,16 +166,63 @@ impl Snapshot {
         }
     }
 
-    /// If there are fingers that are down in `other` but not `self`, copy them over.
-    pub fn merge_from(&mut self, other: &Snapshot) {
+    /// Marks finger `i` as down, in position `pos`. If the finger is already down, its position is
+    /// updated to `pos`.
+    ///
+    /// # Panics
+    /// Panics if `i` is too large (i.e., greater than or equal to `MAX_SLOTS`).
+    pub fn set_down(&mut self, i: usize, pos: Point) {
+        if !self.down[i] {
+            self.num_down += 1;
+            self.down[i] = true;
+        }
+        self.pos[i] = pos;
+    }
+
+    /// Marks finger `i` as up.
+    ///
+    /// # Panics
+    /// Panics if `i` is too large (i.e., greater than or equal to `MAX_SLOTS`).
+    pub fn set_up(&mut self, i: usize) {
+        if self.down[i] {
+            self.num_down -= 1;
+            self.down[i] = false;
+        }
+    }
+
+    /// Returns an iterator over all of the indices and positions of the fingers that are down.
+    pub fn fingers<'a>(&'a self) -> impl Iterator<Item=(usize, Point)> + 'a {
+        (0..MAX_SLOTS)
+            .filter(move |i| self.down[*i])
+            .map(move |i| (i, self.pos[i]))
+    }
+
+    /// Copies over to `self` all the positions of fingers that are down in `other` but not in
+    /// `self. Deletes from `self` all the fingers that are up in `other`.
+    pub fn merge(&mut self, other: &Snapshot) {
         for i in 0..MAX_SLOTS {
-            if other.down[i] && !self.down[i] {
-                self.down[i] = true;
-                self.pos[i] = other.pos[i];
-                self.num_down += 1;
+            if !self.down[i] && other.down[i] {
+                self.set_down(i, other.pos[i]);
+            } else if self.down[i] && !other.down[i] {
+                self.set_up(i);
             }
         }
     }
 }
 
+impl AddAssign<Point> for Snapshot {
+    fn add_assign(&mut self, rhs: Point) {
+        for i in 0..MAX_SLOTS {
+            self.pos[i] += rhs;
+        }
+    }
+}
+
+impl SubAssign<Point> for Snapshot {
+    fn sub_assign(&mut self, rhs: Point) {
+        for i in 0..MAX_SLOTS {
+            self.pos[i] -= rhs;
+        }
+    }
+}
 

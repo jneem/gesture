@@ -1,37 +1,58 @@
 #[macro_use] extern crate chan;
+#[macro_use] extern crate log;
+#[macro_use] extern crate serde_derive;
 
 extern crate chan_signal;
+extern crate env_logger;
 extern crate input;
 extern crate libc;
 extern crate libgestures;
 extern crate libudev_sys;
+extern crate serde;
+extern crate toml;
 
 use chan_signal::Signal;
 use input::event::Event;
 use libgestures::Recognizer;
-use libgestures::geom::Angle;
-use libgestures::gesture::{InitialAngle, Manager, NoMovement, NFingers};
+use libgestures::geom::Direction;
+use libgestures::gestures::compound::direction_swipe;
+use libgestures::manager::Manager;
+use std::collections::HashSet;
 
+mod config;
 mod libinput;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Gesture {
-    Swipe { angle: Angle }
+    Swipe {
+        num_fingers: u8,
+        direction: Direction,
+    },
 }
 
 fn main() {
+    if let Err(e) = env_logger::init() {
+        println!("failed to initialize logging: {:?}", e);
+    }
+
+    let config = config::open_config();
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
     let mut input = libinput::input().unwrap();
     let mut man = Manager::new();
-    let rec = NFingers::new(3)
-        .constrain(NoMovement::new())
-        .and_then(InitialAngle::new())
-        .map(|(_, angle)| Gesture::Swipe { angle });
-    man.push(rec);
 
+    let mut fingers = HashSet::new();
+    for gesture in config.bindings.keys() {
+        match gesture {
+            &Gesture::Swipe { num_fingers, .. } => fingers.insert(num_fingers),
+        };
+    }
+    for &num_fingers in &fingers {
+        man.push(direction_swipe(num_fingers).map_outcome(move |direction| Gesture::Swipe { num_fingers, direction }));
+    }
+
+    // Consume the initial events.
     input.libinput.dispatch().unwrap();
-    while let Some(event) = input.libinput.next() {
-        println!("got initial event: {:?}", event);
+    while let Some(_) = input.libinput.next() {
     }
 
     let poll = input.poll;
@@ -43,6 +64,9 @@ fn main() {
                     if let Event::Touch(ev) = event {
                         if let Some(g) = man.update(&ev) {
                             println!("got gesture {:?}", g);
+                            if let Some(action) = config.bindings.get(&g) {
+                                action.run();
+                            }
                         }
                     }
                 }
