@@ -1,7 +1,7 @@
 use euclid;
 use std::f64;
 use std::f64::consts::PI;
-use std::ops::{Add, Sub};
+use std::ops::{Add, Neg, Sub};
 
 pub struct Mm;
 pub type Point = euclid::TypedVector2D<f64, Mm>;
@@ -132,13 +132,27 @@ impl Sub<Angle> for Angle {
     }
 }
 
+impl Neg for Angle {
+    type Output = Angle;
+
+    fn neg(self) -> Angle {
+        Angle::from_radians(-self.angle)
+    }
+}
+
 /// An unsized angle.
+///
+/// This is useful for measuring the size of an angle without regard to its direction.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UAngle {
     angle: f64
 }
 
 impl UAngle {
+    /// Creates a `UAngle` from a number of radians.
+    ///
+    /// # Panics
+    /// if `radians` is negative.
     pub fn from_radians(radians: f64) -> UAngle {
         assert!(radians >= 0.0);
         UAngle {
@@ -146,17 +160,35 @@ impl UAngle {
         }
     }
 
+    /// How many radians is this `UAngle`?
+    ///
+    /// The answer is guaranteed to be non-negative.
     pub fn to_radians(&self) -> f64 {
         self.angle
     }
 
+    /// Creates a `UAngle` from a number of degrees.
+    ///
+    /// # Panics
+    /// if `degrees` is negative.
     pub fn from_degrees(degrees: f64) -> UAngle {
         assert!(degrees >= 0.0);
         UAngle::from_radians(degrees * PI / 180.0)
     }
 
+    /// How many degrees is this `UAngle`?
     pub fn to_degrees(&self) -> f64 {
         self.angle * 180.0 / PI
+    }
+}
+
+impl Add<UAngle> for UAngle {
+    type Output = UAngle;
+
+    fn add(self, other: UAngle) -> UAngle {
+        UAngle {
+            angle: self.angle + other.angle
+        }
     }
 }
 
@@ -169,6 +201,36 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// Converts an angle to a direction by rounding it.
+    ///
+    /// `threshold` specifies how far away from one of the cardinal directions the angle is allowed
+    /// to be. If the angle is not close enough to one of the directions, `None` is returned.
+    /// `threshold` must be at most 45 degrees.
+    ///
+    /// # Panics
+    /// if `threshold` is larger than 45 degrees.
+    ///
+    /// # Examples
+    /// ```
+    /// use libgestures::geom::{Angle, Direction, UAngle};
+    ///
+    /// let threshold = UAngle::from_degrees(10.0);
+    ///
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(0.0), threshold), Some(Direction::Right));
+    ///
+    /// // These two angles are not exactly Right, but they're close enough.
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(9.0), threshold), Some(Direction::Right));
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(-9.0), threshold), Some(Direction::Right));
+    ///
+    /// // These angles are not within the threshold.
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(11.0), threshold), None);
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(-11.0), threshold), None);
+    ///
+    /// // Here are the other directions.
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(90.0), threshold), Some(Direction::Up));
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(180.0), threshold), Some(Direction::Left));
+    /// assert_eq!(Direction::from_angle(Angle::from_degrees(270.0), threshold), Some(Direction::Down));
+    /// ```
     pub fn from_angle(angle: Angle, threshold: UAngle) -> Option<Direction> {
         let t = threshold.to_radians();
         assert!(t <= PI / 4.0);
@@ -193,6 +255,17 @@ impl Direction {
         }
     }
 
+    /// Converts a `Direction` to an angle.
+    ///
+    /// # Examples
+    /// ```
+    /// use libgestures::geom::Direction;
+    ///
+    /// assert_eq!(Direction::Right.to_angle().to_degrees(), 0.0);
+    /// assert_eq!(Direction::Up.to_angle().to_degrees(), 90.0);
+    /// assert_eq!(Direction::Left.to_angle().to_degrees(), 180.0);
+    /// assert_eq!(Direction::Down.to_angle().to_degrees(), 270.0);
+    /// ```
     pub fn to_angle(&self) -> Angle {
         use self::Direction::*;
 
@@ -202,5 +275,21 @@ impl Direction {
             Left => Angle::from_degrees(180.0),
             Down => Angle::from_degrees(270.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::f64::consts::PI;
+    use super::Angle;
+
+    #[test]
+    fn angle_conversions() {
+        assert_eq!(Angle::from_degrees(0.0), Angle::from_radians(0.0));
+        assert_eq!(Angle::from_degrees(90.0), Angle::from_radians(PI / 2.0));
+        assert_eq!(Angle::from_degrees(180.0), Angle::from_radians(PI));
+        assert_eq!(Angle::from_degrees(270.0), Angle::from_radians(1.5 * PI));
+        assert_eq!(Angle::from_degrees(360.0), Angle::from_radians(2.0 * PI));
+        assert_eq!(Angle::from_degrees(360.0), Angle::from_radians(0.0));
     }
 }
