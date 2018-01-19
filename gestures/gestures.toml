@@ -1,9 +1,0 @@
-[[bindings]]
-gesture = "swipe right"
-command = "xdotool"
-args = ["set_desktop", "--relative", "1"]
-
-[[bindings]]
-gesture = "swipe left"
-command = "xdotool"
-args = ["set_desktop", "--relative", "--", "-1"]

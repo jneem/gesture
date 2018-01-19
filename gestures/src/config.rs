@@ -1,10 +1,11 @@
+use app_dirs::{app_root, AppDataType};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::process;
 use toml;
 
-use { Direction, Gesture };
+use { APP_INFO, Direction, Gesture };
 
 fn parse_swipe(mut s: &[&str]) -> Option<Gesture> {
     if s.is_empty() {
@@ -112,7 +113,10 @@ impl Action {
 }
 
 pub fn open_config() -> Config {
-    let mut file = File::open("gestures.toml").expect("couldn't open config file \"gestures.toml\"");
+    let mut file_name = app_root(AppDataType::UserConfig, &APP_INFO).expect("couldn't open config directory") ;
+    file_name.push("bindings.toml");
+
+    let mut file = File::open(&file_name).expect("couldn't open config file");
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("unable to read config file");
     let c: ConfigParsed = toml::from_str(&contents).expect("unable to parse config file");

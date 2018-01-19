@@ -5,6 +5,7 @@ authors = ["Joe Neeman <joeneeman@gmail.com>"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
+    app_dirs = "1.1"
     chan = "0.1"
     chan-signal = "0.3"
     env_logger = "0.4"

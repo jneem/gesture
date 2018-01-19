@@ -2,6 +2,7 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
 
+extern crate app_dirs;
 extern crate chan_signal;
 extern crate env_logger;
 extern crate input;
@@ -18,6 +19,11 @@ use libgestures::geom::Direction;
 use libgestures::gestures::compound::direction_swipe;
 use libgestures::manager::Manager;
 use std::collections::HashSet;
+
+const APP_INFO: app_dirs::AppInfo = app_dirs::AppInfo {
+    name: "gestures",
+    author: "Joe Neeman",
+};
 
 mod config;
 mod libinput;
